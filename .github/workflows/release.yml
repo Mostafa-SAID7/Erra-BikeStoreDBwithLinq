@@ -1,1 +1,45 @@
 
+name: Build & Publish NuGet Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # Example: v1.0.0
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.0.x'
+        source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+      env:
+        NUGET_AUTH_TOKEN: ${{ secrets.GH_PAT }}
+
+    - name: Restore Dependencies
+      run: dotnet restore
+
+    - name: Build Project
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Pack NuGet Package
+      run: dotnet pack --configuration Release --no-build --output ./nupkg
+
+    - name: Push Package to GitHub Packages
+      run: dotnet nuget push ./nupkg/*.nupkg --source "github" --api-key ${{ secrets.GH_PAT }}
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref }}
+        name: Release ${{ github.ref_name }}
+        body: |
+          Automated Release for ${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
